@@ -1,3 +1,9 @@
+#Deploy
+k8s_yaml(['../../platform/development/services/postgresql.yml'])
+
+#Manage
+k8s_resource('polar-postgres', port_forwards=['5432'])
+
 include('../../../../config-service/Tiltfile')
 include('../../../../catalog-service/Tiltfile')
 
