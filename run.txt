@@ -1,0 +1,9 @@
+minikube start --profile polar
+minikube stop --profile polar
+minikube image load catalog-service --profile polar
+
+kubectl apply -f services
+kubectl logs deployment/polar-postgres
+kubectl delete -f services
+
+kubectl port-forward service/catalog-service 9001:80
