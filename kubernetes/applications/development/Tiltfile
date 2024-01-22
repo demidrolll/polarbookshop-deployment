@@ -6,5 +6,6 @@ k8s_resource('polar-postgres', port_forwards=['5432'])
 
 include('../../../../config-service/Tiltfile')
 include('../../../../catalog-service/Tiltfile')
+include('../../../../order-service/Tiltfile')
 
 update_settings(max_parallel_updates=1)
