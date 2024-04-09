@@ -62,6 +62,6 @@ spec:
   selector:
     db: polar-postgres
   ports:
-  - protocol: TCP
-    port: 5432
-    targetPort: 5432
+    - protocol: TCP
+      port: 5432
+      targetPort: 5432
