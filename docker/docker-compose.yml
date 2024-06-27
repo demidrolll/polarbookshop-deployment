@@ -1,9 +1,8 @@
-version: "3.8"
-
 services:
 
   catalog-service:
     depends_on:
+      - fluent-bit
       - polar-postgres
       - polar-redis
       - config-service
@@ -21,6 +20,10 @@ services:
       - SPRING_CLOUD_CONFIG_URI=http://config-service:8888
       - SPRING_DATASOURCE_URL=jdbc:postgresql://polar-postgres:5432/polardb_catalog
       - SPRING_PROFILES_ACTIVE=testdata
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: 127.0.0.1:24224
 
   order-service:
     depends_on:
@@ -98,3 +101,37 @@ services:
       - 9004:9004
     environment:
       - PORT=9004
+
+  grafana:
+    image: grafana/grafana:9.1.2
+    container_name: "grafana"
+    depends_on:
+      - loki
+    ports:
+      - 3000:3000
+    environment:
+      - GF_SECURITY_ADMIN_USER=user
+      - GF_SECURITY_ADMIN_PASSWORD=password
+    volumes:
+      - ./observability/grafana/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml
+      - ./observability/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./observability/grafana/grafana.ini:/etc/grafana/grafana.ini
+
+  loki:
+    image: grafana/loki:2.6.1
+    container_name: loki
+    depends_on:
+      - fluent-bit
+    ports:
+      - 3100:3100
+
+  fluent-bit:
+    image: grafana/fluent-bit-plugin-loki:2.6.1-amd64
+    container_name: fluent-bit
+    ports:
+      - 24224:24224
+    environment:
+      - LOKI_URL=http://loki:3100/loki/api/v1/push
+    volumes:
+      - ./observability/fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf
+
