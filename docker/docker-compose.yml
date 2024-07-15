@@ -107,6 +107,7 @@ services:
     container_name: "grafana"
     depends_on:
       - loki
+      - prometheus
     ports:
       - 3000:3000
     environment:
@@ -124,6 +125,14 @@ services:
       - fluent-bit
     ports:
       - 3100:3100
+
+  prometheus:
+    image: prom/prometheus:v2.38.0
+    container_name: prometheus
+    ports:
+      - 9090:9090
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
 
   fluent-bit:
     image: grafana/fluent-bit-plugin-loki:2.6.1-amd64
