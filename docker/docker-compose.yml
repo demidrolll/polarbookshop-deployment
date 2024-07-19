@@ -1,11 +1,40 @@
 services:
 
+  edge-service:
+    depends_on:
+      - fluent-bit
+      - polar-keycloak
+      - polar-redis
+      - polar-ui
+    image: "edge-service"
+    container_name: "edge-service"
+    ports:
+      - 9000:9000
+      - 8000:8000
+    environment:
+      # Buildpacks environment variable to enable debug through a socket on port 8000
+      - BPL_DEBUG_ENABLED=true
+      - BPL_DEBUG_PORT=8000
+      - CATALOG_SERVICE_URL=http://catalog-service:9001
+      - ORDER_SERVICE_URL=http://order-service:9002
+      - SPA_URL=http://polar-ui:9004
+      - SPRING_CLOUD_CONFIG_URI=http://config-service:8888
+      - SPRING_REDIS_HOST=polar-redis
+      - SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_ISSUER_URI=http://host.docker.internal:8080/realms/PolarBookshop
+      # OpenTelemetry
+      - JAVA_TOOL_OPTIONS=-javaagent:/workspace/BOOT-INF/lib/opentelemetry-javaagent-2.6.0.jar
+      - OTEL_SERVICE_NAME=edge-service
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://tempo:4318
+      - OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+      - OTEL_METRICS_EXPORTER=none
+
   catalog-service:
     depends_on:
       - fluent-bit
       - polar-postgres
       - polar-redis
       - config-service
+      - tempo
     image: "catalog-service"
     container_name: "catalog-service"
     ports:
@@ -20,6 +49,12 @@ services:
       - SPRING_CLOUD_CONFIG_URI=http://config-service:8888
       - SPRING_DATASOURCE_URL=jdbc:postgresql://polar-postgres:5432/polardb_catalog
       - SPRING_PROFILES_ACTIVE=testdata
+      # OpenTelemetry
+      - JAVA_TOOL_OPTIONS=-javaagent:/workspace/BOOT-INF/lib/opentelemetry-javaagent-2.6.0.jar
+      - OTEL_SERVICE_NAME=catalog-service
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://tempo:4317
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+      - OTEL_METRICS_EXPORTER=none
     logging:
       driver: fluentd
       options:
@@ -44,6 +79,34 @@ services:
       - SPRING_CLOUD_CONFIG_URI=http://config-service:8888
       - SPRING_R2DBC_URL=r2dbc:postgresql://polar-postgres:5432/polardb_order
       - SPRING_FLYWAY_URL=jdbc:postgresql://polar-postgres:5432/polardb_order
+      # OpenTelemetry
+      - JAVA_TOOL_OPTIONS=-javaagent:/workspace/BOOT-INF/lib/opentelemetry-javaagent-2.6.0.jar
+      - OTEL_SERVICE_NAME=order-service
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://tempo:4317
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+      - OTEL_METRICS_EXPORTER=none
+
+  dispatcher-service:
+    depends_on:
+      - fluent-bit
+      - polar-rabbitmq
+    image: "dispatcher-service"
+    container_name: dispatcher-service
+    ports:
+      - 9003:9003
+      - 8003:8003
+    environment:
+      # Buildpacks environment variable to enable debug through a socket on port 8002
+      - BPL_DEBUG_ENABLED=true
+      - BPL_DEBUG_PORT=8003
+      - SPRING_CLOUD_CONFIG_URI=http://config-service:8888
+      - SPRING_RABBITMQ_HOST=polar-rabbitmq
+      # OpenTelemetry
+      - JAVA_TOOL_OPTIONS=-javaagent:/workspace/BOOT-INF/lib/opentelemetry-javaagent-2.6.0.jar
+      - OTEL_SERVICE_NAME=dispatcher-service
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://tempo:4317
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+      - OTEL_METRICS_EXPORTER=none
 
   config-service:
     image: "config-service"
@@ -108,6 +171,7 @@ services:
     depends_on:
       - loki
       - prometheus
+      - tempo
     ports:
       - 3000:3000
     environment:
@@ -143,4 +207,14 @@ services:
       - LOKI_URL=http://loki:3100/loki/api/v1/push
     volumes:
       - ./observability/fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf
+
+  tempo:
+    image: grafana/tempo:1.5.0
+    container_name: tempo
+    command: -config.file /etc/tempo-config.yml
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    volumes:
+      - ./observability/tempo/tempo.yml:/etc/tempo-config.yml
 
